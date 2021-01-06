@@ -164,6 +164,14 @@ void Renderer::CalculateSampling()
             current_depth = current_depth + 0.5*slab_i_thickness;
             std::cerr << "slab thickness: " << slab_i_thickness << std::endl;
         }
+
+        double new_volumetric_max_depth = 0.0;
+        for(int i=0; i<num_volumetric_slabs_; i++)
+        {
+            new_volumetric_max_depth = new_volumetric_max_depth + vol_field_.GetThickness(i);
+        }
+        volumetric_max_depth_ = new_volumetric_max_depth;
+
         break;
     }
     }
@@ -179,6 +187,8 @@ void Renderer::RenderFS(double average_depth, cv::Mat &slab)
 }
 void Renderer::ComputeSlabBS()
 {
+    if(render_back_scatter_){
+
     // rendering backscatter
     for(int i=0; i<vol_field_.GetSlabNum(); i++)
     {
@@ -237,17 +247,21 @@ void Renderer::ComputeSlabBS()
         vol_field_.SetSlabVal(i,slab_buffer);
         std::cerr << "Slab " << i << " constructed." << std::endl;
     }
+    }
 }
 void Renderer::AccumulateBS() // compute accumulated field
 {
+    if(render_back_scatter_){
     for (int i=1; i<vol_field_.GetSlabNum(); i++)
     {
         vol_field_.SetSlabVal(i, vol_field_.GetSlab(i)+vol_field_.GetSlab(i-1));
     }
     std::cerr << "Slab lookup table is constructed." << std::endl;
+    }
 }
 void Renderer::WriteSlabs(std::string outpute_path)
 {
+    if(render_back_scatter_){
     for (int i=0; i<vol_field_.GetSlabNum(); i++)
     {
         cv::Mat img_slab_temp;
@@ -256,9 +270,11 @@ void Renderer::WriteSlabs(std::string outpute_path)
         std::string slab_temp_name = outpute_path + std::to_string(i) + ".exr";
         cv::imwrite(slab_temp_name, img_slab_temp);
     }
+    }
 }
 void Renderer::WriteBSField(std::string path)
 {
+    if(render_back_scatter_){
     std::string bs_field_name = path + "bs_field.exr";
     cv::Mat img_bs_field;
     vol_field_.GetSlab(vol_field_.GetSlabNum()-1).convertTo(img_bs_field, CV_32FC3);
@@ -270,10 +286,44 @@ void Renderer::WriteBSField(std::string path)
     img_bs_field.convertTo(img_bs_field_double, CV_64FC3);
     std::string bs_8bit_name = path + "bs_field.png";
     WriteDoubleMatTo8Bit(img_bs_field_double, bs_8bit_name);
+    }
 }
 
-cv::Mat Renderer::RenderUnderwater(const cv::Mat &img_air, const cv::Mat &depth_map)
+cv::Mat Renderer::RenderUnderwater(const cv::Mat &img_air, cv::Mat &depth_map)
 {
+    if(img_air.empty())
+    {
+        std::cerr << "input color image is empty." << std::endl;
+        system("pause");
+        exit(0);
+    }
+    if(depth_map.empty())
+    {
+        std::cerr << "input depth map is empty." << std::endl;
+        system("pause");
+        exit(0);
+    }
+
+    if(depth_map.channels()>1){
+        std::cerr << "Depth image has " << depth_map.channels() << " channels, only the second channel is used. " << std::endl;
+        cv::Mat bgr[3];
+        cv::split(depth_map, bgr);
+
+        depth_map.release();
+        depth_map = bgr[1].clone();
+    }
+
+    for(int r=0; r<depth_map.rows; r++)
+    {
+        for(int c=0; c<depth_map.cols; c++)
+        {
+            if(depth_map.at<float>(r,c)<0.1)
+                depth_map.at<float>(r,c) = (float)volumetric_max_depth_;
+            else
+                continue;
+        }
+    }
+
     cv::Mat img_direct(cam_.img_size(), CV_64FC3, cv::Scalar(0.0, 0.0, 0.0));
     cv::Mat img_bs(cam_.img_size(), CV_64FC3, cv::Scalar(0.0, 0.0, 0.0));
 
@@ -350,6 +400,11 @@ cv::Mat Renderer::RenderUnderwater(const cv::Mat &img_air, const cv::Mat &depth_
             for(int c=0; c<cam_.width(); c++)
             {
                 double depth_obj2cam = (double)depth_map.at<float>(r,c);
+
+                if(depth_obj2cam > volumetric_max_depth_)
+                {
+                    depth_obj2cam = volumetric_max_depth_;
+                }
 
                 double R_bs = 0.0;
                 double G_bs = 0.0;
@@ -622,7 +677,7 @@ double get_vsf_value(double &angle)
 
 void GenerateRandomFlatSeafloor(int num_img, cv::Size img_size, double fov, std::string output_path)  // this will generate depth and color images without water effect
 {
-    double focal = img_size.width/fov;  // ??? should check it
+    double focal = img_size.width / 2.0 / tan(fov/2.0);
     Eigen::Matrix3d KMat_cam;
     KMat_cam << focal, 0.0, (double)img_size.width/2.0,
             0.0,focal, (double)img_size.height/2.0,
@@ -706,37 +761,45 @@ int factorial(int n)
 
 cv::Vec3d Renderer::interpolate_bs(int row, int col, const double &depth_val)
 {
-    int tableIDX = 0;
     cv::Vec3d output;
     double d = depth_val;
-    for (int idx = 0; idx < vol_field_.GetSlabNum(); idx++)
+
+    if (d>=volumetric_max_depth_)
     {
-        d = d-vol_field_.GetThickness(idx);
-        if (d>=0.0)
-        {
-            tableIDX++;
-        }
-        else
-            break;
-    }
-    if (tableIDX > 0)
-    {
-        double mod = depth_val;
-        for (int id = 0; id < tableIDX; id++)
-        {
-            mod = mod-vol_field_.GetThickness(id);
-        }
-        cv::Vec3d startVal = vol_field_.GetSlab(tableIDX-1).at<cv::Vec3d>(row,col);
-        cv::Vec3d endVal = vol_field_.GetSlab(tableIDX).at<cv::Vec3d>(row,col);
-        cv::Vec3d diff = endVal-startVal;
-        output = startVal + diff*mod/vol_field_.GetThickness(tableIDX);
+        output = vol_field_.GetSlab(vol_field_.GetSlabNum()-1).at<cv::Vec3d>(row,col);
     }
     else
     {
-        cv::Vec3d diff = vol_field_.GetSlab(tableIDX).at<cv::Vec3d>(row,col);
-        output = depth_val/vol_field_.GetThickness(0) * diff;
-    }
+        int tableIDX = 0;
+        for (int idx = 0; idx < vol_field_.GetSlabNum(); idx++)
+        {
+            d = d-vol_field_.GetThickness(idx);
+            if (d>0.0)
+            {
+                tableIDX++;
+            }
+            else
+                break;
+        }
 
+        if (tableIDX==0)
+        {
+            output = depth_val/vol_field_.GetThickness(0) * vol_field_.GetSlab(0).at<cv::Vec3d>(row,col);
+        }
+        else
+        {
+            double mod = depth_val;
+            for (int id = 0; id < tableIDX; id++)
+            {
+                mod = mod-vol_field_.GetThickness(id);
+            }
+            cv::Vec3d startVal = vol_field_.GetSlab(tableIDX-1).at<cv::Vec3d>(row,col);
+            cv::Vec3d endVal = vol_field_.GetSlab(tableIDX).at<cv::Vec3d>(row,col);
+            cv::Vec3d diff = endVal-startVal;
+            output = startVal + diff*mod/vol_field_.GetThickness(tableIDX);
+        }
+
+    }
 
     return output;
 }
