@@ -35,7 +35,7 @@ public:
         height_ = img_size.height;
         double img_width_double = (double)img_size.width;
         double img_height_double = (double)img_size.height;
-        focal_length_ = img_width_double/fov;
+        focal_length_ = img_width_double / 2.0 / tan(fov/2.0);
         k_mat_ << focal_length_, 0.0, img_width_double/2.0,
                 0.0, focal_length_, img_height_double/2.0,
                 0.0, 0.0, 1.0;
@@ -47,7 +47,7 @@ public:
         height_ = img.rows;
         double img_width_double = (double)img.cols;
         double img_height_double = (double)img.rows;
-        focal_length_ = img_width_double/fov;
+        focal_length_ = img_width_double / 2.0 / tan(fov/2.0);
         k_mat_ << focal_length_, 0.0, img_width_double/2.0,
                 0.0, focal_length_, img_height_double/2.0,
                 0.0, 0.0, 1.0;
@@ -91,7 +91,7 @@ public:
         height_ = size.height;
         double img_width_double = (double)size.width;
         double img_height_double = (double)size.height;
-        focal_length_ = img_width_double/fov;
+        focal_length_ = img_width_double / 2.0 / tan(fov/2.0);
         k_mat_ << focal_length_, 0.0, img_width_double/2.0,
                 0.0, focal_length_, img_height_double/2.0,
                 0.0, 0.0, 1.0;
@@ -311,7 +311,7 @@ public:
     void WriteSlabs(std::string outpute_path);
     void WriteBSField(std::string path);
     void RenderUnderwater(const cv::Mat &img_air, const cv::Mat &depth_map, const std::string &output_path);
-    cv::Mat RenderUnderwater(const cv::Mat &img_air, const cv::Mat &depth_map);
+    cv::Mat RenderUnderwater(const cv::Mat &img_air, cv::Mat &depth_map);
     cv::Vec3d interpolate_bs(int row, int col, const double &depth_val);
 
     void WriteDoubleMatTo8Bit(const cv::Mat &double_mat, const std::string &write_path);
