@@ -1,7 +1,8 @@
 # **Deep Sea Robotic Imaging Simulator**
 
-Project Homepage: <https://www.geomar.de/en/omv-research/robotic-imaging-simulator>
-GitHub page: <https://github.com/omv-ysong/DeepSeaRenderer>
+**Project Homepage:** <https://www.geomar.de/en/omv-research/robotic-imaging-simulator>
+
+**GitHub page:** <https://github.com/omv-ysong/DeepSeaRenderer>
 
 ## Publication
 ```
@@ -30,7 +31,7 @@ make
 ```
 
 ## running test
-
+(Test images are in *DeepSeaRenderer/testset_bomb/*)
 ```
 cd bin
 ./testRenderer
