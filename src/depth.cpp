@@ -32,6 +32,7 @@ cv::Mat& uwc::DepthMap::GetNormal(const Eigen::Matrix3d &k_inverse, std::string 
 
 void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse)
 {
+    cv::Vec3d normal(0.0, 0.0, -1.0);
     #pragma omp parallel for
     for (int x = 0; x < m_depth_.rows; ++x)
     {
@@ -48,47 +49,52 @@ void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse)
 
             if(x==0 || x==(m_depth_.rows-1) || y==0 || x==(m_depth_.cols-1))
             {
-                cv::Vec3d normal(0.0, 0.0, -1.0);
                 m_normal_.at<cv::Vec3d>(x, y) = normal;
             }
             else{
-                double d1 = (double)m_depth_.at<float>(x, y + 1);
-                double d2 = (double)m_depth_.at<float>(x, y - 1);
-                double d3 = (double)m_depth_.at<float>(x + 1, y);
-                double d4 = (double)m_depth_.at<float>(x - 1, y);
+                float depth_val = m_depth_.at<float>(x, y);
+                if( depth_val < 0.01 || depth_val > 20.0){
+                    m_normal_.at<cv::Vec3d>(x, y) = normal;
+                }
+                else{
+                    double d1 = (double)m_depth_.at<float>(x, y + 1);
+                    double d2 = (double)m_depth_.at<float>(x, y - 1);
+                    double d3 = (double)m_depth_.at<float>(x + 1, y);
+                    double d4 = (double)m_depth_.at<float>(x - 1, y);
 
-                Eigen::Vector3d p_1_homo((double)(y+1), (double)x, 1.0);
-                Eigen::Vector3d p_2_homo((double)(y-1), (double)x, 1.0);
-                Eigen::Vector3d p_3_homo((double)y, (double)(x+1), 1.0);
-                Eigen::Vector3d p_4_homo((double)y, (double)(x-1), 1.0);
+                    Eigen::Vector3d p_1_homo((double)(y+1), (double)x, 1.0);
+                    Eigen::Vector3d p_2_homo((double)(y-1), (double)x, 1.0);
+                    Eigen::Vector3d p_3_homo((double)y, (double)(x+1), 1.0);
+                    Eigen::Vector3d p_4_homo((double)y, (double)(x-1), 1.0);
 
-                Eigen::Vector3d v1 = k_inverse * p_1_homo;
-                Eigen::Vector3d v2 = k_inverse * p_2_homo;
-                Eigen::Vector3d v3 = k_inverse * p_3_homo;
-                Eigen::Vector3d v4 = k_inverse * p_4_homo;
+                    Eigen::Vector3d v1 = k_inverse * p_1_homo;
+                    Eigen::Vector3d v2 = k_inverse * p_2_homo;
+                    Eigen::Vector3d v3 = k_inverse * p_3_homo;
+                    Eigen::Vector3d v4 = k_inverse * p_4_homo;
 
-                v1.normalize();
-                v2.normalize();
-                v3.normalize();
-                v4.normalize();
+                    v1.normalize();
+                    v2.normalize();
+                    v3.normalize();
+                    v4.normalize();
 
-                Eigen::Vector3d P1_3d = v1 * d1/abs(v1[2]);
-                Eigen::Vector3d P2_3d = v2 * d2/abs(v2[2]);
-                Eigen::Vector3d P3_3d = v3 * d3/abs(v3[2]);
-                Eigen::Vector3d P4_3d = v4 * d4/abs(v4[2]);
+                    Eigen::Vector3d P1_3d = v1 * d1/abs(v1[2]);
+                    Eigen::Vector3d P2_3d = v2 * d2/abs(v2[2]);
+                    Eigen::Vector3d P3_3d = v3 * d3/abs(v3[2]);
+                    Eigen::Vector3d P4_3d = v4 * d4/abs(v4[2]);
 
-                double dzdx = (d1-d2) / (P1_3d[0]-P2_3d[0]);
-                double dzdy = (d3-d4) / (P3_3d[1]-P4_3d[1]);
+                    double dzdx = (d1-d2) / (P1_3d[0]-P2_3d[0]);
+                    double dzdy = (d3-d4) / (P3_3d[1]-P4_3d[1]);
 
-                //float dzdx = (m_depth.at<float>(x + 1, y) - m_depth.at<float>(x - 1, y)) / 2.0;
-                //float dzdy = (m_depth.at<float>(x, y + 1) - m_depth.at<float>(x, y - 1)) / 2.0;
+                    //float dzdx = (m_depth.at<float>(x + 1, y) - m_depth.at<float>(x - 1, y)) / 2.0;
+                    //float dzdy = (m_depth.at<float>(x, y + 1) - m_depth.at<float>(x, y - 1)) / 2.0;
 
-                cv::Vec3d direction(dzdx, dzdy, -1.0);
-                cv::Vec3d normal = cv::normalize(direction);
+                    cv::Vec3d direction(dzdx, dzdy, -1.0);
+                    cv::Vec3d normal = cv::normalize(direction);
 //                Eigen::Vector3d normal(dzdx, dzdy, -1.0);
 //                normal.normalize();
 //                cv::Vec3d normalcv(normal[0],normal[1],normal[2]);
-                m_normal_.at<cv::Vec3d>(x, y) = normal;
+                    m_normal_.at<cv::Vec3d>(x, y) = normal;
+                }
             }
 
 
