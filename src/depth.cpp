@@ -47,7 +47,7 @@ void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse)
             //   d3
 
 
-            if(x==0 || x==(m_depth_.rows-1) || y==0 || x==(m_depth_.cols-1))
+            if(x==0 || x==(m_depth_.rows-1) || y==0 || y==(m_depth_.cols-1))
             {
                 m_normal_.at<cv::Vec3d>(x, y) = normal;
             }
