@@ -117,7 +117,7 @@ public:
         R_ = Eigen::AngleAxisd(rotation_angles[0],Eigen::Vector3d::UnitX())
                    * Eigen::AngleAxisd(rotation_angles[1],Eigen::Vector3d::UnitY())
                    * Eigen::AngleAxisd(rotation_angles[2], Eigen::Vector3d::UnitZ());
-        direction_ = initial_direction_.transpose()*R_;
+        direction_ = R_*initial_direction_;
     }
 
     Eigen::Vector3d pos() const
