@@ -61,7 +61,11 @@ cd bin
 
 uw::Renderer renderer;
 renderer.SetConfig(config_filename);
+```
+
 3. Pre-compute 3D backscatter lookup table:
+
+```
 renderer.ComputeSlabBS();
 renderer.AccumulateBS();
 ```
@@ -85,7 +89,7 @@ cv::imwrite(output_name, new_img);
 
 | Parameter Name                  | Type                    | Description                                                                                                                                                                                                   | Example                                                    |
 |---------------------------------|-------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
-| scale_factor                    | float                   | control the global brightness.                                                                                                                                                                                | 8.0                                                        |
+| scale_factor                    | float                   | control the global brightness, similar to the ISO or exposure time of the camera                                                                                                                             | 8.0                                                        |
 | scale_factor_bs                 | float                   | control the strength of the backscatter effect, usually set to 1000 times  to the scale_factor. Increase the factor will make stronger  backscatter in the rendered images.                                   | 8000.0                                                     |
 | render_back_scatter             | bool                    | render backscatter effect in the output images, this will pre-render  the 3D backscatter lookup table.                                                                                                        | true                                                       |
 | volumetric_max_depth            | float                   | max depth [m] of the 3D backscatter lookup table (recommend values: 8-10).                                                                                                                                    | 8.0                                                        |
@@ -97,9 +101,9 @@ cv::imwrite(output_name, new_img);
 | white_balance                   | [float, float, float]   | camera white balance in R, G, B.                                                                                                                                                                              | [2.2, 1.0, 1.4]                                            |
 | water_attenuation_RGB           | [float, float, float]   | water attenuation parameters in R, G, B. (unit: m-¹)                                                                                                                                                          | [0.37, 0.044, 0.035]                                       |
 | light_spectrum_RGB              | [float, float, float]   | light spectrum in R, G, B. (relative value, range in [0.0, 1.0])                                                                                                                                              | [0.25, 0.35, 0.4]                                          |
-| light_RID_type                  | int                     | ight RID type, 0: gaussian, 1: lab measurement.                                                                                                                                                               | 0                                                          |
+| light_RID_type                  | int                     | light RID type, 0: gaussian, 1: lab measurement.                                                                                                                                                               | 0                                                          |
 | num_lights                      | int                     | number of lights.                                                                                                                                                                                             | 3                                                          |
-| light_positions_XYZ             | [[float, float, float]] | relative position of all lights,  number of XYZ coordinates should fit to the number of lights. (each square bracket contains XYZ for each light: [X, Y, Z], another square bracket includes all the lights.) | [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]       |
+| light_positions_XYZ             | [[float, float, float]] | relative position [in meter] of all lights refer to the camera, number of XYZ coordinates should fit to the number of lights. (each square bracket contains XYZ for each light: [X, Y, Z], another square bracket includes all the lights.) | [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]       |
 | light_orientations_RollPitchYaw | [[float, float, float]] | relative rotation angles [radian] of all lights in Roll, Pitch, Yaw,  initial orientation is the camera viewing direction,  number of RollPitchYaw angles should fit to the number of lights.                 | [[0.0, -0.785, 0.0], [0.785, 0.0, 0.0], [0.0, 0.785, 0.0]] |
 | write_uw_img_in_exr             | bool                    | save float images in exr format.                                                                                                                                                                              | false                                                      |
 | auto_iso                        | bool                    | automatically adjust the brightness of the output images, similar to auto ISO + auto WB settings in digital camera, output color may change because it adjust channels separately.                            | false                                                      |
