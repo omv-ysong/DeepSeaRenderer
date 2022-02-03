@@ -6,13 +6,19 @@ num_volumetric_slabs: 8
 write_slab: false
 slab_sampling_method: 1	 # 0:EQUAL_DISTANCE, 1:ADAPTIVE
 image_width_height: [800, 800]
-field_of_view: 1.372665  # unit: radian
+camera_intrinsic_matrix: [600.0, 0.0, 400.0, 0.0, 600.0, 400.0, 0.0, 0.0, 1.0]
+#image_width_height: [2632, 1988]
+#camera_intrinsic_matrix: [7315.238, 0.0, 997.555, 0.0, 7315.238, 980.754, 0.0, 0.0, 1.0]
 white_balance: [2.28613, 1.0, 1.361328] # [2.498, 1.0, 1.448]
 water_attenuation_RGB: [0.37, 0.044, 0.035] # Jerlov type IB [0.37, 0.044, 0.035] # Jerlov type II: [0.4, 0.071, 0.06]
+vsf_type: 1  # Volume Scattering Function from Pezolds' measurements, 1:VSF_clear, 2:VSF_coast,  3:VSF_turbid
 light_spectrum_RGB: [0.25, 0.35, 0.4]  #light_spectrum in R,G,B order, relative value range in [0.0, 1.0]
+light_ambient_RGB: [0.2, 0.2, 0.2]  #ambient light (Phong shading) in R,G,B order
 light_RID_type: 1  # 0:gaussian, 1:lab measurement
 num_lights: 2
 light_positions_XYZ: [[-0.5, 0.0, 0.0], [0.5, 0.0, 0.0]]
 light_orientations_RollPitchYaw: [[0.0, 0.536, 0.0], [0.0, -0.536, 0.0]] # unit: radian
 write_uw_img_in_exr: false
+depth_sommoth_window_size: 0  # kernal size of the median filter for smoothing normal eages, 0 means no smoothing, can only be 0, 3, 5
+refine_depth: true  # inpaint incomplete depth maps
 auto_iso: false

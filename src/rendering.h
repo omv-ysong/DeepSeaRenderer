@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -15,7 +16,7 @@ namespace uw {
 
 int factorial(int n);
 double light_RID(double &angle, int &light_type);
-double get_vsf_value(double &angle);
+double get_vsf_value(double &angle, int vsf_type);
 cv::Vec3d interpolate_bs(int row, int col, const double depth_val, const std::vector<double> &thickness_array, const std::vector<cv::Mat> &slabs_lookup);
 
 class Camera
@@ -97,6 +98,14 @@ public:
                 0.0, 0.0, 1.0;
         k_mat_inv_ = k_mat_.inverse();
     }
+    inline virtual void SetIntrinsics(const cv::Size size, const Eigen::Matrix3d cam_matrix)
+    {
+        width_ = size.width;
+        height_ = size.height;
+        focal_length_ = cam_matrix(0,0);  // assume fx=fy
+        k_mat_ = cam_matrix;
+        k_mat_inv_ = k_mat_.inverse();
+    }
 
 private:
     double focal_length_ = 1.0;
@@ -132,6 +141,10 @@ public:
     {
         return spectrum_;
     }
+    Eigen::Vector3d ambient() const
+    {
+        return ambient_;
+    }
     int RID_type() const
     {
         return RID_type_;
@@ -140,6 +153,10 @@ public:
     inline virtual void SetSpecturm(const Eigen::Vector3d spectrum)
     {
         spectrum_ = spectrum;
+    }
+    inline virtual void SetAmbient(const Eigen::Vector3d ambient)
+    {
+        ambient_ = ambient;
     }
     inline virtual void SetRIDType(const int rid_type)
     {
@@ -164,6 +181,7 @@ private:
     Eigen::Vector3d direction_ = initial_direction_;
     Eigen::Matrix3d R_ = Eigen::Matrix3d::Identity();
     Eigen::Vector3d spectrum_ = Eigen::Vector3d(1.0, 1.0, 1.0);
+    Eigen::Vector3d ambient_ = Eigen::Vector3d(0.0, 0.0, 0.0);
     int RID_type_ = 0;
 
 };
@@ -329,13 +347,17 @@ private:
     Camera cam_;
     Eigen::Vector3d white_balance_;
     Eigen::Vector3d attenuation_;
+    int vsf_type_ = 1;
     Eigen::Vector3d light_spectrum_;
+    Eigen::Vector3d light_ambient_;
     int light_type_ = 0;
     std::vector<Light> lights_ = {};
     unsigned int num_light_ = 0;
     VolumetricField vol_field_;
     bool write_uw_img_in_exr_ = false;
     bool auto_iso_ = false;
+    unsigned int depth_sommoth_window_size_ = 0;
+    bool refine_depth_ = false;
 };
 
 

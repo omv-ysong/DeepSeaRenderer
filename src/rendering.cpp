@@ -76,17 +76,38 @@ void Renderer::SetConfig(const std::string yaml_file)
     num_volumetric_slabs_ = config["num_volumetric_slabs"].as<int>();
     write_slab_ = config["write_slab"].as<bool>();
     slab_sampling_method_ = config["slab_sampling_method"].as<int>();
+    depth_sommoth_window_size_ = config["depth_sommoth_window_size"].as<int>();
+    refine_depth_ = config["refine_depth"].as<bool>();
+
     std::vector<unsigned int> img_size_vec = config["image_width_height"].as<std::vector<unsigned int>>();
     cv::Size img_size(img_size_vec[0], img_size_vec[1]);
-    double field_of_view = config["field_of_view"].as<double>();
+//    double field_of_view = config["field_of_view"].as<double>();
+    std::vector<double> camera_intrinsic_matrix = config["camera_intrinsic_matrix"].as<std::vector<double>>();
+    if(camera_intrinsic_matrix.size()==1){
+      double field_of_view = camera_intrinsic_matrix[0];
+      cam_.SetIntrinsics(img_size, field_of_view);
+    }
+    else if(camera_intrinsic_matrix.size()==9){
+      Eigen::Matrix3d came_matrix; // = Eigen::Map<Eigen::Matrix3d>(camera_intrinsic_matrix.data());
+      came_matrix << camera_intrinsic_matrix[0], camera_intrinsic_matrix[1], camera_intrinsic_matrix[2],
+              camera_intrinsic_matrix[3],  camera_intrinsic_matrix[4],  camera_intrinsic_matrix[5],
+              camera_intrinsic_matrix[6],  camera_intrinsic_matrix[7],  camera_intrinsic_matrix[8];
+      cam_.SetIntrinsics(img_size, came_matrix);
+    }
+    else{
+       std::cerr << "Input camera_intrinsic_matrix is in wrong format!!!" << std::endl;
+       exit (EXIT_FAILURE);
+    }
     std::vector<double> white_balance_vec = config["white_balance"].as<std::vector<double>>();
     white_balance_= Eigen::Map<Eigen::Vector3d>(white_balance_vec.data());
-    cam_.SetIntrinsics(img_size, field_of_view);
     cam_.SetWB(white_balance_);
     std::vector<double> attenuation_vec = config["water_attenuation_RGB"].as<std::vector<double>>();
     attenuation_= Eigen::Map<Eigen::Vector3d>(attenuation_vec.data());
+    vsf_type_ = config["vsf_type"].as<int>();
     std::vector<double> light_spectrum_vec = config["light_spectrum_RGB"].as<std::vector<double>>();
     light_spectrum_= Eigen::Map<Eigen::Vector3d>(light_spectrum_vec.data());
+    std::vector<double> light_ambient_vec = config["light_ambient_RGB"].as<std::vector<double>>();
+    light_ambient_ = Eigen::Map<Eigen::Vector3d>(light_ambient_vec.data());
     light_type_ = config["light_RID_type"].as<int>();
     num_light_ = config["num_lights"].as<unsigned int>();
     std::vector<std::vector<double>> light_pos = config["light_positions_XYZ"].as<std::vector<std::vector<double>>>();
@@ -98,6 +119,7 @@ void Renderer::SetConfig(const std::string yaml_file)
         l_ori= Eigen::Map<Eigen::Vector3d>(light_ori[i].data());
         Light light_buffer(l_pos, l_ori);
         light_buffer.SetSpecturm(light_spectrum_);
+        light_buffer.SetAmbient(light_ambient_);
         light_buffer.SetRIDType(light_type_);
         lights_.emplace_back(light_buffer);
     }
@@ -110,10 +132,14 @@ void Renderer::SetConfig(const std::string yaml_file)
               << "num_volumetric_slabs: " << num_volumetric_slabs_ << std::endl
               << "write_slab: " << write_slab_ << std::endl
               << "slab_sampling_method: " << slab_sampling_method_ << std::endl
+              << "depth_sommoth_window_size: " << depth_sommoth_window_size_ << std::endl
               << "image_width&height: " << img_size << std::endl
               << "focal_length: " << cam_.f() << std::endl
+              << "camera_matrix: " << cam_.K() << std::endl
               << "camera_white_balance: " << white_balance_.transpose() << std::endl
-              << "number_of_lights: " << lights_.size() << std::endl;
+              << "number_of_lights: " << lights_.size() << std::endl
+              << "light_ambient_factor: " << light_ambient_.transpose() << std::endl
+              << "VSF_type: " << vsf_type_ << std::endl;
     for(int i=0; i<num_light_; i++)
     {
         std::cerr << "Light " << i << ": position [" << lights_[i].pos().transpose() <<
@@ -230,7 +256,7 @@ void Renderer::ComputeSlabBS()
                     double angle_from_central_axis = acos(lights_[n].dir()[0]*vec_light2voxel[0] +
                             lights_[n].dir()[1]*vec_light2voxel[1] +
                             lights_[n].dir()[2]*vec_light2voxel[2]) / M_PI * 180.0;  // unit: degree
-                    double compute_buffer = get_vsf_value(omega_deg) * light_RID(angle_from_central_axis, light_type)
+                    double compute_buffer = get_vsf_value(omega_deg, vsf_type_) * light_RID(angle_from_central_axis, light_type)
                             / d_light2voxel / d_light2voxel * vol_field_.GetThickness(i) * cos_phi * scale_factor_;
                     R_voxel_buffer = R_voxel_buffer + exp(-vol_field_.GetAtteCoeff()[0]*d_light2voxel)*compute_buffer;
                     G_voxel_buffer = G_voxel_buffer + exp(-vol_field_.GetAtteCoeff()[1]*d_light2voxel)*compute_buffer;
@@ -313,22 +339,50 @@ cv::Mat Renderer::RenderUnderwater(const cv::Mat &img_air, cv::Mat &depth_map)
         depth_map = bgr[1].clone();
     }
 
-    for(int r=0; r<depth_map.rows; r++)
-    {
-        for(int c=0; c<depth_map.cols; c++)
+    if(refine_depth_){
+      // create depth inpainting mask
+        cv::Mat depth_inpaint_mask = cv::Mat::zeros(depth_map.size(), CV_8U);
+        for(int r=0; r<depth_map.rows; r++)
         {
-            if(depth_map.at<float>(r,c)<0.1)
-                depth_map.at<float>(r,c) = (float)volumetric_max_depth_;
-            else
-                continue;
+            for(int c=0; c<depth_map.cols; c++)
+            {
+                float depth_val = depth_map.at<float>(r,c);
+                if(depth_val<0.1 || depth_val>volumetric_max_depth_)
+                {
+                    depth_inpaint_mask.at<uchar>(r,c) = 255;
+                }
+                else
+                    continue;
+            }
         }
+        std::string inpaint_mask_path = "./inpaint_mask.jpg";
+        cv::imwrite(inpaint_mask_path, depth_inpaint_mask);
+
+        // depth inpainting
+        cv::Mat inpainted_depth;
+        cv::inpaint(depth_map, depth_inpaint_mask, inpainted_depth, 5, cv::INPAINT_NS);
+        std::string inpaint_depth_path = "./depth_inpainted.exr";
+        depth_map = inpainted_depth.clone();   // update depth map to inpainted version
+        cv::imwrite(inpaint_depth_path, depth_map);
+    }
+    else{
+      for(int r=0; r<depth_map.rows; r++)
+      {
+          for(int c=0; c<depth_map.cols; c++)
+          {
+              if(depth_map.at<float>(r,c)<0.1)
+                  depth_map.at<float>(r,c) = (float)volumetric_max_depth_;
+              else
+                  continue;
+          }
+      }
     }
 
     cv::Mat img_direct(cam_.img_size(), CV_64FC3, cv::Scalar(0.0, 0.0, 0.0));
     cv::Mat img_bs(cam_.img_size(), CV_64FC3, cv::Scalar(0.0, 0.0, 0.0));
 
     uwc::DepthMap normal_estimator{depth_map};
-    cv::Mat normals = normal_estimator.GetNormal(cam_.invK());
+    cv::Mat normals = normal_estimator.GetNormal(cam_.invK(), depth_sommoth_window_size_);
 
     int light_type = lights_[0].RID_type();
     Eigen::Vector3d light_spectrum = lights_[0].spectrum(); // assume all lights have same specturm & RID
@@ -374,12 +428,18 @@ cv::Mat Renderer::RenderUnderwater(const cv::Mat &img_air, cv::Mat &depth_map)
                 double angle_from_central_axis = std::acos(lights_[i].dir()[0]*vec_light2obj[0] +
                         lights_[i].dir()[1]*vec_light2obj[1] +
                         lights_[i].dir()[2]*vec_light2obj[2]) / M_PI * 180.0;  // unit: degree
+                double acc_buffer = light_RID(angle_from_central_axis, light_type) / d_light2obj / d_light2obj;
 
-                double acc_buffer = cos_theta * light_RID(angle_from_central_axis, light_type) / d_light2obj / d_light2obj;
-                atten_buffer_R = atten_buffer_R + exp(-attenuation_[0]*d_light2obj)*acc_buffer;
-                atten_buffer_G = atten_buffer_G + exp(-attenuation_[1]*d_light2obj)*acc_buffer;
-                atten_buffer_B = atten_buffer_B + exp(-attenuation_[2]*d_light2obj)*acc_buffer;
-
+                if(cos_theta<0.0){ //no lights hit this point, only ambient
+                    atten_buffer_R = atten_buffer_R + exp(-attenuation_[0]*d_light2obj) * lights_[i].ambient()[0] * acc_buffer;
+                    atten_buffer_G = atten_buffer_G + exp(-attenuation_[1]*d_light2obj) * lights_[i].ambient()[1] * acc_buffer;
+                    atten_buffer_B = atten_buffer_B + exp(-attenuation_[2]*d_light2obj) * lights_[i].ambient()[2] * acc_buffer;
+                }
+                else{ // ambient + diffuse
+                    atten_buffer_R = atten_buffer_R + exp(-attenuation_[0]*d_light2obj) * (cos_theta*acc_buffer + lights_[i].ambient()[0]*acc_buffer);
+                    atten_buffer_G = atten_buffer_G + exp(-attenuation_[1]*d_light2obj) * (cos_theta*acc_buffer + lights_[i].ambient()[1]*acc_buffer);
+                    atten_buffer_B = atten_buffer_B + exp(-attenuation_[2]*d_light2obj) * (cos_theta*acc_buffer + lights_[i].ambient()[2]*acc_buffer);
+                }
             }
 
             R = R * atten_buffer_R;
@@ -395,36 +455,36 @@ cv::Mat Renderer::RenderUnderwater(const cv::Mat &img_air, cv::Mat &depth_map)
     if(render_back_scatter_)
     {
 #pragma omp parallel for
-        for(int r=0; r<cam_.height(); r++)
+      for(int r=0; r<cam_.height(); r++)
         {
-            for(int c=0; c<cam_.width(); c++)
-            {
-                double depth_obj2cam = (double)depth_map.at<float>(r,c);
+          for(int c=0; c<cam_.width(); c++)
+          {
+              double depth_obj2cam = (double)depth_map.at<float>(r,c);
 
-                if(depth_obj2cam > volumetric_max_depth_)
-                {
-                    depth_obj2cam = volumetric_max_depth_;
-                }
+              if(depth_obj2cam > volumetric_max_depth_)
+              {
+                  depth_obj2cam = volumetric_max_depth_;
+              }
 
-                double R_bs = 0.0;
-                double G_bs = 0.0;
-                double B_bs = 0.0;
-                if(depth_obj2cam>=volumetric_max_depth_ || depth_obj2cam<=0.0) // <=0.0 means only water in the scene, no depth valuse
-                {
-                    int depthID = vol_field_.GetSlabNum() - 1;
-                    R_bs = vol_field_.GetSlab(depthID).at<cv::Vec3d>(r,c)[0];
-                    G_bs = vol_field_.GetSlab(depthID).at<cv::Vec3d>(r,c)[1];
-                    B_bs = vol_field_.GetSlab(depthID).at<cv::Vec3d>(r,c)[2];
-                }
-                else
-                {
-                    cv::Vec3d bs_RGB = interpolate_bs(r, c, depth_obj2cam);
-                    R_bs = bs_RGB[0];
-                    G_bs = bs_RGB[1];
-                    B_bs = bs_RGB[2];
-                }
+              double R_bs = 0.0;
+              double G_bs = 0.0;
+              double B_bs = 0.0;
+              if(depth_obj2cam>=volumetric_max_depth_ || depth_obj2cam<=0.0) // <=0.0 means only water in the scene, no depth valuse
+              {
+                  int depthID = vol_field_.GetSlabNum() - 1;
+                  R_bs = vol_field_.GetSlab(depthID).at<cv::Vec3d>(r,c)[0];
+                  G_bs = vol_field_.GetSlab(depthID).at<cv::Vec3d>(r,c)[1];
+                  B_bs = vol_field_.GetSlab(depthID).at<cv::Vec3d>(r,c)[2];
+              }
+              else
+              {
+                  cv::Vec3d bs_RGB = interpolate_bs(r, c, depth_obj2cam);
+                  R_bs = bs_RGB[0];
+                  G_bs = bs_RGB[1];
+                  B_bs = bs_RGB[2];
+              }
 
-                img_bs.at<cv::Vec3d>(r,c) = cv::Vec3d(R_bs,G_bs,B_bs);
+              img_bs.at<cv::Vec3d>(r,c) = cv::Vec3d(R_bs,G_bs,B_bs);
             }
         }
 
@@ -544,6 +604,7 @@ void Renderer::ConvertDoubleMatTo8Bit(const cv::Mat &double_mat, std::string &ou
 
 void GenerateBSPlot(std::string output_file, double max_dist, double sampling_dist)
 {
+    int vsf_type = 1;
     Eigen::Vector3d atten_coeff(0.4, 0.071, 0.06); // Jerlov type II
     Eigen::Vector3d light_spectrum(0.25, 0.35, 0.4);
     /// generate figures jerlov
@@ -568,16 +629,16 @@ void GenerateBSPlot(std::string output_file, double max_dist, double sampling_di
         Eigen::Vector3d vec_light2voxel = p_3d-light_position;
         double d_light2voxel = vec_light2voxel.norm();
         vec_light2voxel.normalize();
-        
+
         double cos_omega = (vec_cam2voxel[0]*vec_light2voxel[0] +
                 vec_cam2voxel[1]*vec_light2voxel[1] +
                 vec_cam2voxel[2]*vec_light2voxel[2]);
         double omega = acos(cos_omega);   // unit:RAD
         double omega_deg = 180.0 - (omega / M_PI * 180.0);
-        
-        
-        double compute_buffer = get_vsf_value(omega_deg)  / d_light2voxel / d_light2voxel;
-        
+
+
+        double compute_buffer = get_vsf_value(omega_deg, vsf_type)  / d_light2voxel / d_light2voxel;
+
         /* * sin(omega)  * d_cam2voxel*/  //scale factor need to be checked, sin(omega) consider the Lambert's Cosine Law for voxel
         R_voxel_buffer = R_voxel_buffer + exp(-atten_coeff[0]*d_light2voxel)*compute_buffer;
         G_voxel_buffer = G_voxel_buffer + exp(-atten_coeff[1]*d_light2voxel)*compute_buffer;
@@ -641,9 +702,9 @@ double light_RID(double &angle, int &light_type)  // unit: degree
     }
 }
 
-double get_vsf_value(double &angle)
+double get_vsf_value(double &angle, int vsf_type)
 {
-    int watertype = 1;  //  1:VSF_clear, 2:VSF_coast,  3:VSF_turbid
+//    int watertype = 1;  //  1:VSF_clear, 2:VSF_coast,  3:VSF_turbid
     int tableIDX = 0;
     for (int idx = 0; idx < NumElementsVSF_table; idx++)
     {
@@ -660,7 +721,7 @@ double get_vsf_value(double &angle)
     }
     double factor;
     double startAng, startVal, endAng, endVal;
-    startAng = VSF_table[tableIDX][0]; startVal = VSF_table[tableIDX][watertype];
+    startAng = VSF_table[tableIDX][0]; startVal = VSF_table[tableIDX][vsf_type];
 
     if (tableIDX >= NumElementsVSF_table)
     {
@@ -668,7 +729,7 @@ double get_vsf_value(double &angle)
     }
     else
     {
-        endAng = VSF_table[tableIDX+1][0]; endVal = VSF_table[tableIDX+1][watertype];
+        endAng = VSF_table[tableIDX+1][0]; endVal = VSF_table[tableIDX+1][vsf_type];
         factor = startVal + abs(angle-startAng)*(endVal-startVal)/(endAng-startAng);
     }
 
@@ -815,5 +876,3 @@ void ExrImageAmplity(std::string exr_filename, float times)
 }
 
 }
-
-
