@@ -496,7 +496,7 @@ cv::Mat Renderer::RenderUnderwater(const cv::Mat &img_air, cv::Mat &depth_map)
     {
         cv::Mat img_new_32F;
         img_direct.convertTo(img_new_32F, CV_32FC3);
-        cv::imwrite("../test_dataset/img_new_EXR.exr", img_new_32F);
+        cv::imwrite("./img_new_EXR.exr", img_new_32F);
     }
 
     return img_direct;
@@ -658,40 +658,51 @@ double light_RID(double &angle, int &light_type)  // unit: degree
 {
     if(light_type==0) // 0: gaussian curve
     {
+      if(angle<0.0 || angle>90.0){
+        return 0.0;
+      }
+      else{
         return (exp(-angle*angle/(2.0*35.0*35.0)));
+      }
     }
 
     if(light_type==1) // 1: real measurement
     {
-        int tableIDX = 0;
-        for (int idx = 0; idx < NumElementsBXRA_table; idx++)
-        {
-            if (angle > BXRA_table[idx][0])
+        if(angle<0.0 || angle>90.0){
+          return 0.0;
+        }
+        else{
+            int tableIDX = 0;
+            for (int idx = 0; idx < NumElementsBXRA_table; idx++)
             {
-                tableIDX++;
+                if (angle > BXRA_table[idx][0])
+                {
+                    tableIDX++;
+                }
+                else
+                    break;
+            }
+            if (tableIDX > 0)
+            {
+                tableIDX--;
+            }
+            double factor;
+            double startAng, startVal, endAng, endVal;
+            startAng = BXRA_table[tableIDX][0]; startVal = BXRA_table[tableIDX][1];
+
+            if (tableIDX >= NumElementsBXRA_table)
+            {
+                factor = 0.0;
             }
             else
-                break;
-        }
-        if (tableIDX > 0)
-        {
-            tableIDX--;
-        }
-        double factor;
-        double startAng, startVal, endAng, endVal;
-        startAng = BXRA_table[tableIDX][0]; startVal = BXRA_table[tableIDX][1];
+            {
+                endAng = BXRA_table[tableIDX+1][0]; endVal = BXRA_table[tableIDX+1][1];
+                factor = startVal + abs(angle-startAng)*(endVal-startVal)/(endAng-startAng);
+            }
 
-        if (tableIDX >= NumElementsBXRA_table)
-        {
-            factor = 0.0;
-        }
-        else
-        {
-            endAng = BXRA_table[tableIDX+1][0]; endVal = BXRA_table[tableIDX+1][1];
-            factor = startVal + abs(angle-startAng)*(endVal-startVal)/(endAng-startAng);
+            return factor;
         }
 
-        return factor;
     }
 
     else
