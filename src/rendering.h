@@ -321,20 +321,32 @@ public:
     };
 
     Renderer() = default;
+
+    // load rendering configurations from the yaml config file
     void SetConfig(const std::string yaml_file);
+    // compute depth for each slab
     void CalculateSampling();
+    // render forward scattering component
     void RenderFS(double average_depth, cv::Mat &slab);
+    // compute back scatter component on each slab
     void ComputeSlabBS();
+    // get accumulated BS component from each slab
     void AccumulateBS(); // compute accumulated field
+    // write out BS slabs as exr images
     void WriteSlabs(std::string outpute_path);
-    void WriteBSField(std::string path);
-    void RenderUnderwater(const cv::Mat &img_air, const cv::Mat &depth_map, const std::string &output_path);
+    // main function, render underwater images from RGB-D image pairs
     cv::Mat RenderUnderwater(const cv::Mat &img_air, cv::Mat &depth_map);
+    // internal function used in RenderUnderwater, to get interpolated BS values for each ray from accumulated BS slabs
     cv::Vec3d interpolate_bs(int row, int col, const double &depth_val);
 
-    void WriteDoubleMatTo8Bit(const cv::Mat &double_mat, const std::string &write_path);
-    cv::Mat ConvertDoubleMatTo8Bit(const cv::Mat &double_mat);
-    void ConvertDoubleMatTo8Bit(const cv::Mat &double_mat, std::string &output_name);
+    // write out float images to 8bit jpg images
+    void WriteDoubleMatTo8Bit(const cv::Mat &double_mat, std::string &output_name);
+
+    // functions for exporting graphs in the paper
+    // write out last slab BS (complete BS, equal to pure water)
+    void WriteBSField(std::string path);
+    // export fog model simulation result for comparision
+    void RenderFogModel(const cv::Mat &color_img, const cv::Mat &depth_img);
 
 private:
     int slab_sampling_method_ = 1;
@@ -360,13 +372,12 @@ private:
     bool refine_depth_ = false;
 };
 
-
-
+// extra functions to export figures and data for other usage
 void GenerateBSPlot(std::string output_file, double max_dist, double sampling_dist);
 void generate_flat_seefloor_dataset(int imgNum, cv::Size imgSize, double fov, std::string outputPath);
 Eigen::Vector3d ray_plane_intersection(Eigen::Vector3d &rayVector, Eigen::Vector3d &rayPoint, Eigen::Vector3d &planeNormal, Eigen::Vector3d &planePoint);  // algorithm from https://rosettacode.org/wiki/Find_the_intersection_of_a_line_with_a_plane#C.2B.2B
 void RenderPlanImage(int render_img_num, std::string outpu_path);
-void ExrImageAmplity(std::string exr_filename, float times);
+void ExrImageAmplify(std::string exr_filename, float times);
 
 }  // namespace
 

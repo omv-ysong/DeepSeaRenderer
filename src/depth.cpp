@@ -38,9 +38,9 @@ void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsig
         for (int c = 0; c < m_depth_.cols; c++)
         {
           // neighbour pixel index
-          //   d4
-          //d2    d1   ->c
-          //   d3
+          //    d4
+          //d2  x  d1   -->c
+          //    d3
 
           if(r==0 || r==(m_depth_.rows-1) || c==0 || c==(m_depth_.cols-1))
           {
@@ -87,7 +87,7 @@ void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsig
          }
      }
 
-    if(sommoth_window_size == 3 || sommoth_window_size == 5){ // extra smoothing
+    if(sommoth_window_size == 3 || sommoth_window_size == 5){ // extra smoothing 
       cv::Mat m_normal_XYZ[3];
       cv::split(m_normal_, m_normal_XYZ);
       cv::Mat grad_x, grad_y;
@@ -104,7 +104,7 @@ void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsig
             {
                 cv::Vec3d normal_vec = m_normal_.at<cv::Vec3d>(r,c);
 
-                // these pixels' normals will be replaced by smoothed median values
+                // the normals which are too far from the optical axis direction will be replaced by the smoothed median values
                 if(abs(normal_vec(2))<0.2)
                 {
                     if(abs(grad_x.at<double>(r,c)) > 0.4 || abs(grad_y.at<double>(r,c)) > 0.4){
@@ -122,18 +122,3 @@ void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsig
 
 }
 
-void uwc::DepthMap::Calculate3DPoints(const cv::Mat &image, double focal)
-{
-    // Eigen::Matrix3d KMat_cam;
-    // KMat_cam << focal, 0.0, image.cols/2.0,
-    //             0.0,focal, image.rows/2.0,
-    //             0.0, 0.0, 1.0;
-    // Eigen::Matrix3d KMat_cam_inv = KMat_cam.inverse();
-
-    // Eigen::Vector3d p_2d_homo((double)c, (double)r, 1.0);
-    // Eigen::Vector3d vec_cam2voxel = KMat_cam_inv * p_2d_homo;
-    // vec_cam2voxel.normalize();
-    // Eigen::Vector3d p_3d;
-    // p_3d = vec_cam2voxel * current_slab_depth/abs(vec_cam2voxel[2]); // origion is at (0,0,0), so omitted
-    // double d_cam2voxel = p_3d.norm(); // origion is at (0,0,0), so omitted
-}

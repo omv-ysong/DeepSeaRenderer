@@ -4,7 +4,6 @@
 #include <opencv2/opencv.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-//#include <opencv2/surface_matching/ppf_helpers.hpp>
 #include <opencv2/core.hpp>
 
 namespace uwc
@@ -16,6 +15,7 @@ public:
     DepthMap() = default;
     DepthMap(const cv::Mat &);
 
+    // compute normal map from depth
     cv::Mat &GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size);
     cv::Mat &GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size, std::string write_path);
 
@@ -33,7 +33,6 @@ private:
     unsigned int sommoth_window_size_ = 0;
 
     void EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size);
-    void Calculate3DPoints(const cv::Mat &image, double local);
 
 };
 
