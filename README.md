@@ -6,12 +6,27 @@
 
 ## Publication
 ```
-@inproceedings{song2020deep,
+@inproceedings{song2021deep,
   title={Deep Sea Robotic Imaging Simulator},
   author={Song, Yifan and Nakath, David and She, Mengkun and Elibol, Furkan and K{\\"o}ser, Kevin},
-  booktitle={Proceedings of the Computer Vision for Automated Analysis of Underwater Imagery Workshop (CVAUI)},
-  year={2020},
-  organization={Springer}
+  booktitle={Pattern Recognition. ICPR International Workshops and Challenges},
+  year={2021},
+  publisher={Springer},
+  pages={375--389},
+  doi={https://doi.org/10.1007/978-3-030-68790-8_29}
+}
+```
+
+**New features are added to handle real world scene with imperfect depth maps. They have been used in: 
+```
+@article{song2022virtually,
+  title={Virtually throwing benchmarks into the ocean for deep sea photogrammetry and image processing evaluation},
+  author={Song, Yifan and She, Mengkun and K{\"o}ser, Kevin},
+  journal={ISPRS Annals of the Photogrammetry, Remote Sensing and Spatial Information Sciences},
+  volume={V-4-2022},
+  pages={353--360},
+  year={2022},
+  doi={https://doi.org/10.1007/978-3-030-68790-8_29}
 }
 ```
 

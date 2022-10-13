@@ -1,7 +1,8 @@
 #include "rendering.h"
 
 double BXRA_table[10][2] =
-    {{0.0, 1.0}, {10.0, 0.96}, {20.0, 0.87}, {30.0, 0.75}, {35.0, 0.63}, {40.0, 0.5}, {45.0, 0.28}, {50.0, 0.2}, {60.0, 0.12}, {90.0, 0.0}}; // LED relative intensity distribution from real lab measurement
+    {{0.0, 1.0}, {10.0, 0.96}, {20.0, 0.87}, {30.0, 0.75}, {35.0, 0.63}, 
+     {40.0, 0.5}, {45.0, 0.28}, {50.0, 0.2}, {60.0, 0.12}, {90.0, 0.0}}; // LED relative intensity distribution from real lab measurement
 
 double VSF_table[55][4] = {{0.100, 5.318e+001, 6.533e+002, 3.262e+003},
                            {0.126, 4.042e+001, 4.577e+002, 2.397e+003},
@@ -261,7 +262,10 @@ namespace uw
                                                                   lights_[n].dir()[1] * vec_light2voxel[1] +
                                                                   lights_[n].dir()[2] * vec_light2voxel[2]) /
                                                              M_PI * 180.0; // unit: degree
-                            double compute_buffer = get_vsf_value(omega_deg, vsf_type_) * light_RID(angle_from_central_axis, light_type) / d_light2voxel / d_light2voxel * vol_field_.GetThickness(i) * cos_phi * scale_factor_;
+                            double compute_buffer = get_vsf_value(omega_deg, vsf_type_) * light_RID(angle_from_central_axis, light_type) 
+                                                    / d_light2voxel / d_light2voxel * vol_field_.GetThickness(i) * cos_phi * scale_factor_;  
+                            // todo, need to further proof: replace 'cos_phi' by 'cos_beta/cos_phi/cos_phi' make more sense? beta is the angle between the ray voxel2light and inverse optical axis.
+                            // cos_beta describe the energy on the unit area on voxel, one cos_phi describe the voxel area increase with phi, another cos_phi describe the ray travel distance increase in the voxel with phi: dist = thickness*cos_phi
                             R_voxel_buffer = R_voxel_buffer + exp(-vol_field_.GetAtteCoeff()[0] * d_light2voxel) * compute_buffer;
                             G_voxel_buffer = G_voxel_buffer + exp(-vol_field_.GetAtteCoeff()[1] * d_light2voxel) * compute_buffer;
                             B_voxel_buffer = B_voxel_buffer + exp(-vol_field_.GetAtteCoeff()[2] * d_light2voxel) * compute_buffer;
@@ -273,8 +277,10 @@ namespace uw
                         slab_buffer.at<cv::Vec3d>(r, c) = cv::Vec3d(R_voxel, G_voxel, B_voxel); // in RGB order here !!!
                     }
                 }
+
                 RenderFS(vol_field_.GetDepth(i), slab_buffer);
                 vol_field_.SetSlabVal(i, slab_buffer);
+
                 std::cerr << "Slab " << i << " constructed." << std::endl;
             }
         }
@@ -420,8 +426,7 @@ namespace uw
                     double cos_theta = (-normalVec[0] * vec_light2obj[0] - normalVec[1] * vec_light2obj[1] - normalVec[2] * vec_light2obj[2]);
                     double angle_from_central_axis = std::acos(lights_[i].dir()[0] * vec_light2obj[0] +
                                                                lights_[i].dir()[1] * vec_light2obj[1] +
-                                                               lights_[i].dir()[2] * vec_light2obj[2]) /
-                                                     M_PI * 180.0; // unit: degree
+                                                               lights_[i].dir()[2] * vec_light2obj[2]) / M_PI * 180.0; // unit: degree
                     double acc_buffer = light_RID(angle_from_central_axis, light_type) / d_light2obj / d_light2obj;
 
                     if (cos_theta < 0.0)
@@ -491,7 +496,7 @@ namespace uw
         {
             cv::Mat img_new_32F;
             img_direct.convertTo(img_new_32F, CV_32FC3);
-            cv::imwrite("./img_new_EXR.exr", img_new_32F);
+            cv::imwrite("./img_uw_EXR.exr", img_new_32F);
         }
 
         return img_direct;
@@ -713,8 +718,10 @@ namespace uw
 
     double get_vsf_value(double &angle, int vsf_type)
     {
-        //   vsf_type  1:VSF_clear, 2:VSF_coast,  3:VSF_turbid
-        int tableIDX = 0;
+        //   vsf_type  1:VSF_clear, 2:VSF_coast,  3:VSF_turbid, 4: Henyey-Greenstein Phase Function
+        double factor = 0.0;
+        if(vsf_type<4){
+            int tableIDX = 0;
         for (int idx = 0; idx < NumElementsVSF_table; idx++)
         {
             if (angle > VSF_table[idx][0])
@@ -728,7 +735,7 @@ namespace uw
         {
             tableIDX--;
         }
-        double factor;
+        
         double startAng, startVal, endAng, endVal;
         startAng = VSF_table[tableIDX][0];
         startVal = VSF_table[tableIDX][vsf_type];
@@ -742,6 +749,19 @@ namespace uw
             endAng = VSF_table[tableIDX + 1][0];
             endVal = VSF_table[tableIDX + 1][vsf_type];
             factor = startVal + abs(angle - startAng) * (endVal - startVal) / (endAng - startAng);
+        }
+
+        }
+
+        else if(vsf_type==4){
+            double g = -0.3; // Henyey-Greenstein parameter, range [-1.0, 1.0]
+            double temp = 1.0 + g*g + 2.0*g*std::cos(angle / 180.0 * M_PI);
+            factor = 1.0 / 4.0 / M_PI * (1.0 - g*g) / (temp*std::sqrt(temp));
+        }
+        else{
+            std::cout << "Unknown VSF type! " << std::endl;
+            EXIT_FAILURE;
+            return 0;
         }
 
         return factor;
