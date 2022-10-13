@@ -1,0 +1,1 @@
+../testset_middlebury/Adirondack_perfect/im0.png

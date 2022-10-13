@@ -1,0 +1,22 @@
+scale_factor: 3.5
+scale_factor_bs: 1000.0
+render_back_scatter: true
+volumetric_max_depth: 4.0
+num_volumetric_slabs: 10
+write_slab: false
+slab_sampling_method: 0	 # 0:EQUAL_DISTANCE, 1:ADAPTIVE
+image_width_height: [2880, 1988]     # Adirondack
+camera_intrinsic_matrix: [4161.221, 0.0, 1445.577, 0.0, 4161.221, 984.686, 0.0, 0.0, 1.0]
+white_balance: [2.498, 1.0, 1.448] # [2.498, 1.0, 1.448] [2.28613, 1.0, 1.361328]
+water_attenuation_RGB: [0.4, 0.071, 0.06] # Jerlov type IB [0.37, 0.044, 0.035] # Jerlov type II: [0.4, 0.071, 0.06]
+vsf_type: 4  # Volume Scattering Function from Pezolds' measurements, 1:VSF_clear, 2:VSF_coast,  3:VSF_turbid, 4:H-G
+light_spectrum_RGB: [0.25, 0.35, 0.4]  #light_spectrum in R,G,B order, relative value range in [0.0, 1.0]
+light_ambient_RGB: [0.2, 0.2, 0.2]  #ambient light (Phong shading) in R,G,B order
+light_RID_type: 1  # 0:gaussian, 1:lab measurement
+num_lights: 1
+light_positions_XYZ: [[0.0, -1.0, 0.0]]
+light_orientations_RollPitchYaw: [[-0.8, 0.0, 0.0]] # unit: radian
+write_uw_img_in_exr: false
+depth_sommoth_window_size: 0  # smooth window size when computing normal map from depth map, 0 means no smoothing, too high valy may cause out of memory error
+refine_depth: true
+auto_iso: false
