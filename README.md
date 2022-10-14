@@ -56,7 +56,7 @@ cd bin
 **If you want to make a quick test on your own imags**, the easiest way is:
 
 1. Set proper parameters according to your requirements in the *DeepSeaRenderer/testset_bomb/config.yaml* file;
-2. Replace the image and depth path in *img_lists.txt* and *depth_lists.txt* to your images. (Image and depth names should in the same order.) run:
+2. Replace the image and depth path in *testset_bomb/img_lists.txt* and *testset_bomb/depth_lists.txt* to your images. (Image and depth names should in the same order.) run:
 
 ```
 cd bin
