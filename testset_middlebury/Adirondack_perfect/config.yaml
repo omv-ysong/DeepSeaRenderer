@@ -17,6 +17,6 @@ num_lights: 1
 light_positions_XYZ: [[0.0, -1.0, 0.0]]
 light_orientations_RollPitchYaw: [[-0.8, 0.0, 0.0]] # unit: radian
 write_uw_img_in_exr: false
-depth_sommoth_window_size: 0  # smooth window size when computing normal map from depth map, 0 means no smoothing, too high valy may cause out of memory error
+depth_smooth_window_size: 0  # smooth window size when computing normal map from depth map, 0 means no smoothing, too high valy may cause out of memory error
 refine_depth: true
 auto_iso: false
