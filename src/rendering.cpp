@@ -76,7 +76,7 @@ namespace uw
         num_volumetric_slabs_ = config["num_volumetric_slabs"].as<int>();
         write_slab_ = config["write_slab"].as<bool>();
         slab_sampling_method_ = config["slab_sampling_method"].as<int>();
-        depth_sommoth_window_size_ = config["depth_sommoth_window_size"].as<int>();
+        depth_smooth_window_size_ = config["depth_smooth_window_size"].as<int>();
         refine_depth_ = config["refine_depth"].as<bool>();
 
         std::vector<unsigned int> img_size_vec = config["image_width_height"].as<std::vector<unsigned int>>();
@@ -135,7 +135,7 @@ namespace uw
                   << "num_volumetric_slabs: " << num_volumetric_slabs_ << std::endl
                   << "write_slab: " << write_slab_ << std::endl
                   << "slab_sampling_method: " << slab_sampling_method_ << std::endl
-                  << "depth_sommoth_window_size: " << depth_sommoth_window_size_ << std::endl
+                  << "depth_smooth_window_size: " << depth_smooth_window_size_ << std::endl
                   << "image_width&height: " << img_size << std::endl
                   << "focal_length: " << cam_.f() << std::endl
                   << "camera_matrix: " << cam_.K() << std::endl
@@ -381,7 +381,7 @@ namespace uw
         cv::Mat img_bs(cam_.img_size(), CV_64FC3, cv::Scalar(0.0, 0.0, 0.0));
 
         uwc::DepthMap normal_estimator{depth_map};
-        cv::Mat normals = normal_estimator.GetNormal(cam_.invK(), depth_sommoth_window_size_);
+        cv::Mat normals = normal_estimator.GetNormal(cam_.invK(), depth_smooth_window_size_);
 
         int light_type = lights_[0].RID_type();
         Eigen::Vector3d light_spectrum = lights_[0].spectrum(); // assume all lights have same specturm & RID

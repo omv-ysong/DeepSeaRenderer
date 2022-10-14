@@ -368,7 +368,7 @@ private:
     VolumetricField vol_field_;
     bool write_uw_img_in_exr_ = false;
     bool auto_iso_ = false;
-    unsigned int depth_sommoth_window_size_ = 0;
+    unsigned int depth_smooth_window_size_ = 0;
     bool refine_depth_ = false;
 };
 
