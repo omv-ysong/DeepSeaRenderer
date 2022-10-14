@@ -11,15 +11,15 @@ uwc::DepthMap::DepthMap(const cv::Mat &depth)
     mean_depth_ = (double)(mean_depth_container.val[0]);
 }
 
-cv::Mat& uwc::DepthMap::GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size)
+cv::Mat& uwc::DepthMap::GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int smooth_window_size)
 {
-    EstimateNormal(k_inverse, sommoth_window_size);
+    EstimateNormal(k_inverse, smooth_window_size);
     return m_normal_;
 }
 
-cv::Mat& uwc::DepthMap::GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size, std::string write_path)
+cv::Mat& uwc::DepthMap::GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int smooth_window_size, std::string write_path)
 {
-    EstimateNormal(k_inverse, sommoth_window_size);
+    EstimateNormal(k_inverse, smooth_window_size);
 
     cv::Mat writer;
     m_normal_.convertTo(writer, CV_32FC3);
@@ -28,7 +28,7 @@ cv::Mat& uwc::DepthMap::GetNormal(const Eigen::Matrix3d &k_inverse, const unsign
     return m_normal_;
 }
 
-void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size)
+void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsigned int smooth_window_size)
 {
     cv::Vec3d normal_init(0.0, 0.0, -1.0);
 
@@ -87,7 +87,7 @@ void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsig
          }
      }
 
-    if(sommoth_window_size == 3 || sommoth_window_size == 5){ // extra smoothing 
+    if(smooth_window_size == 3 || smooth_window_size == 5){ // extra smoothing 
       cv::Mat m_normal_XYZ[3];
       cv::split(m_normal_, m_normal_XYZ);
       cv::Mat grad_x, grad_y;
@@ -95,8 +95,8 @@ void uwc::DepthMap::EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsig
       cv::Sobel(m_normal_XYZ[1], grad_y, -1, 0, 1, 3);
       cv::Mat normal_median, m_normal_32f;
       m_normal_.convertTo(m_normal_32f, CV_32FC3);
-      cv::medianBlur(m_normal_32f, normal_median, sommoth_window_size);
-      cv::medianBlur(normal_median, normal_median, sommoth_window_size);
+      cv::medianBlur(m_normal_32f, normal_median, smooth_window_size);
+      cv::medianBlur(normal_median, normal_median, smooth_window_size);
 
       for(int r=0; r<m_normal_.rows; r++)
         {

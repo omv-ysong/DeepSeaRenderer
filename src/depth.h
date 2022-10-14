@@ -16,8 +16,8 @@ public:
     DepthMap(const cv::Mat &);
 
     // compute normal map from depth
-    cv::Mat &GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size);
-    cv::Mat &GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size, std::string write_path);
+    cv::Mat &GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int smooth_window_size);
+    cv::Mat &GetNormal(const Eigen::Matrix3d &k_inverse, const unsigned int smooth_window_size, std::string write_path);
 
     double mean()
     {
@@ -30,9 +30,9 @@ private:
     cv::Mat m_normal_;
     double mean_depth_ = 0.0;
     Eigen::Matrix3d k_mat_;
-    unsigned int sommoth_window_size_ = 0;
+    unsigned int smooth_window_size_ = 0;
 
-    void EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsigned int sommoth_window_size);
+    void EstimateNormal(const Eigen::Matrix3d &k_inverse, const unsigned int smooth_window_size);
 
 };
 
